@@ -50,6 +50,7 @@
 
 		if (queryType === 'function') {
 			callback = query;
+			console.log(`Model read`);
 			return this.storage.findAll(callback);
 		} else if (queryType === 'string' || queryType === 'number') {
 			query = parseInt(query, 10);
@@ -94,6 +95,7 @@
 	 * Returns a count of all todos
 	 */
 	Model.prototype.getCount = function (callback) {
+
 		var todos = {
 			active: 0,
 			completed: 0,

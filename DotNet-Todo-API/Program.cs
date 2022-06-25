@@ -3,8 +3,18 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<TodoDb>(opt => opt.UseInMemoryDatabase("TodoList"));
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(
+        policy =>
+        {
+            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        });
+});
 
 var app = builder.Build();
+app.UseCors();
+
 
 app.MapGet("/", () => "Hello World!");
 
@@ -27,6 +37,16 @@ app.MapGet("/todoitems/{id}", async (int id, TodoDb db) =>
 
 });
 
+app.MapGet("/todoitems/filter/{partialTitle}", async (string partialTitle, TodoDb db) =>
+{
+
+    var todos = await db.Todos.Where(t => t.Title.IndexOf(partialTitle)>0).ToListAsync();
+
+    if (todos is null) return Results.NotFound();
+
+    return Results.Ok(todos);
+
+});
 
 /*
 
@@ -41,14 +61,25 @@ headers: content-type: application/json
  */
 app.MapPost("/todoitems", async (Todo todo, TodoDb db) =>
 {
+
+    if (String.IsNullOrEmpty(todo.Title))
+        return Results.BadRequest("Title is empty");
+
     db.Todos.Add(todo);
     await db.SaveChangesAsync();
 
-    return Results.Created($"/todoitems/{todo.Id}", todo);
+    var list = await db.Todos.ToListAsync();
+
+    return Results.Ok(list);
+
 });
 // update 1 by id
 app.MapPut("/todoitems/{id}", async (int id, Todo inputTodo, TodoDb db) =>
 {
+
+    if (String.IsNullOrEmpty(inputTodo.Title))
+        return Results.BadRequest("Title is empty");
+
     var todo = await db.Todos.FindAsync(id);
 
     if (todo is null) return Results.NotFound();
@@ -58,7 +89,9 @@ app.MapPut("/todoitems/{id}", async (int id, Todo inputTodo, TodoDb db) =>
 
     await db.SaveChangesAsync();
 
-    return Results.NoContent();
+    var list = await db.Todos.ToListAsync();
+
+    return Results.Ok(list);
 });
 
 // delete all
@@ -66,7 +99,12 @@ app.MapDelete("/todoitems", async (TodoDb db) =>
 {
         db.Todos.RemoveRange(db.Todos);
         await db.SaveChangesAsync();
-        return Results.Ok();
+
+
+    var list = await db.Todos.ToListAsync();
+
+    return Results.Ok(list);
+
   
 });
 
@@ -76,7 +114,10 @@ app.MapDelete("/todoitems/{id}", async (int id, TodoDb db) =>
     {
         db.Todos.Remove(todo);
         await db.SaveChangesAsync();
-        return Results.Ok(todo);
+
+        var list = await db.Todos.ToListAsync();
+
+        return Results.Ok(list);
     }
 
     return Results.NotFound();
@@ -89,7 +130,7 @@ class Todo
     [Column("id")]
     public int Id { get; set; }
     [Column("title")]
-    public string? Title { get; set; }
+    public string Title { get; set; }
     [Column("completed")]
     public bool Completed { get; set; }
 }

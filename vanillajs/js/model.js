@@ -102,7 +102,7 @@
 			total: 0
 		};
 		console.log(`Model getCount`);
-		this.storage.findAll(function (data) {
+		this.storage.getExistingData(function (data) {
 			data.forEach(function (todo) {
 				if (todo.completed) {
 					todos.completed++;

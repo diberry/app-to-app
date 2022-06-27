@@ -10,20 +10,24 @@
         this._todoListInitialized = false;
     }
 
-    Store.prototype.find = async function (query) {
+    Store.prototype.getExistingData = function () {
+        return Promise.resolve(this._todoList);
+    }
 
-        try {
-            var partialTitle = query.title;
+    Store.prototype.find = async function (query, callback) {
 
-            const response = await this.fetchFromApi(`/todoitems/filter/${partialTitle}`, 'GET');
+		if (!callback) {
+			return;
+		}
 
-            if (!response.ok) callback(response);
-
-            const jsonResponse = await response.json();
-            callback(jsonResponse);
-        } catch (err) {
-            console.warn('Something went wrong.', err);
-        };
+		callback.call(this, this._todoList.filter(function (todo) {
+			for (var q in query) {
+				if (query[q] !== todo[q]) {
+					return false;
+				}
+			}
+			return true;
+		}));
     };
 
     Store.prototype.findAll = async function (callback) {
@@ -56,7 +60,14 @@
 
         try {
             if (id) {
-                response = await this.fetchFromApi('/todoitems', 'PUT', updateData);
+                // used to update Title or Completed
+
+                let originalItem = this._todoList.filter((item) => { return item.id === id });
+                if(originalItem.length !== 1) throw Error("can't find item with id: " + id);
+
+                let updatedItem = { ...(originalItem[0]), ...updateData };
+                
+                response = await this.fetchFromApi(`/todoitems/${id}`, 'PUT', updatedItem);
             } else {
                 response = await this.fetchFromApi('/todoitems', 'POST', updateData)
             }

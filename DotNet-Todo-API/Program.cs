@@ -1,4 +1,5 @@
 // .NET Core 6 API - For https://todobackend.com/
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -41,17 +42,7 @@ app.MapGet("/todoitems/{id}", async (int id, TodoDb db) =>
     return Results.Ok(todo);
 
 });
-// Filter list with partial match - not fuzzy search
-app.MapGet("/todoitems/filter/{partialTitle}", async (string partialTitle, TodoDb db) =>
-{
 
-    var todos = await db.Todos.Where(t => t.Title.IndexOf(partialTitle)>0).ToListAsync();
-
-    if (todos is null) return Results.NotFound();
-
-    return Results.Ok(todos);
-
-});
 
 /*
 
@@ -70,6 +61,8 @@ app.MapPost("/todoitems", async (Todo todo, TodoDb db) =>
     if (String.IsNullOrEmpty(todo.Title))
         return Results.BadRequest("Title is empty");
 
+    todo.Title = todo.Title.ToLower();
+
     db.Todos.Add(todo);
     await db.SaveChangesAsync();
 
@@ -79,18 +72,15 @@ app.MapPost("/todoitems", async (Todo todo, TodoDb db) =>
 
 });
 // update 1 by id
-app.MapPut("/todoitems/{id}", async (int id, Todo inputTodo, TodoDb db) =>
+app.MapPut("/todoitems/{id}", async (int id, [FromBody] Todo updateData, TodoDb db) =>
 {
-
-    if (String.IsNullOrEmpty(inputTodo.Title))
-        return Results.BadRequest("Title is empty");
 
     var todo = await db.Todos.FindAsync(id);
 
     if (todo is null) return Results.NotFound();
 
-    todo.Title = inputTodo.Title;
-    todo.Completed = inputTodo.Completed;
+    todo.Title = updateData.Title.ToLower();
+    todo.Completed = updateData.Completed;
 
     await db.SaveChangesAsync();
 

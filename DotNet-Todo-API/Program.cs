@@ -3,11 +3,14 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<TodoDb>(opt => opt.UseInMemoryDatabase("TodoList"));
+
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(
         policy =>
         {
+            // CAUTION: DO NOT USE THIS IN PRODUCTION
             policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
         });
 });
@@ -15,7 +18,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 app.UseCors();
 
-
+// Root
 app.MapGet("/", () => "Hello World!");
 
 // get all
@@ -36,7 +39,7 @@ app.MapGet("/todoitems/{id}", async (int id, TodoDb db) =>
     return Results.Ok(todo);
 
 });
-
+// Filter list with partial match - not fuzzy search
 app.MapGet("/todoitems/filter/{partialTitle}", async (string partialTitle, TodoDb db) =>
 {
 
@@ -68,9 +71,7 @@ app.MapPost("/todoitems", async (Todo todo, TodoDb db) =>
     db.Todos.Add(todo);
     await db.SaveChangesAsync();
 
-    var list = await db.Todos.ToListAsync();
-
-    return Results.Ok(list);
+    return Results.Ok();
 
 });
 // update 1 by id
@@ -89,9 +90,7 @@ app.MapPut("/todoitems/{id}", async (int id, Todo inputTodo, TodoDb db) =>
 
     await db.SaveChangesAsync();
 
-    var list = await db.Todos.ToListAsync();
-
-    return Results.Ok(list);
+    return Results.Ok();
 });
 
 // delete all
@@ -101,9 +100,7 @@ app.MapDelete("/todoitems", async (TodoDb db) =>
         await db.SaveChangesAsync();
 
 
-    var list = await db.Todos.ToListAsync();
-
-    return Results.Ok(list);
+    return Results.Ok();
 
   
 });
@@ -114,10 +111,7 @@ app.MapDelete("/todoitems/{id}", async (int id, TodoDb db) =>
     {
         db.Todos.Remove(todo);
         await db.SaveChangesAsync();
-
-        var list = await db.Todos.ToListAsync();
-
-        return Results.Ok(list);
+        return Results.Ok();
     }
 
     return Results.NotFound();

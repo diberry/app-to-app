@@ -1,5 +1,6 @@
 // .NET Core 6 API - For https://todobackend.com/
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,7 +55,7 @@ app.MapGet("/todoitems/filter/{partialTitle}", async (string partialTitle, TodoD
 
 /*
 
-add 1 
+add 1 then return it
 
 headers: content-type: application/json
 
@@ -72,7 +73,9 @@ app.MapPost("/todoitems", async (Todo todo, TodoDb db) =>
     db.Todos.Add(todo);
     await db.SaveChangesAsync();
 
-    return Results.Ok();
+    var returnedTodo = await db.Todos.Where(t => t.Title == todo.Title).ToListAsync();
+
+    return Results.Ok(returnedTodo);
 
 });
 // update 1 by id
@@ -91,7 +94,9 @@ app.MapPut("/todoitems/{id}", async (int id, Todo inputTodo, TodoDb db) =>
 
     await db.SaveChangesAsync();
 
-    return Results.Ok();
+    var returnedTodo = await db.Todos.FindAsync(id);
+
+    return Results.Ok(returnedTodo);
 });
 
 // delete all
@@ -100,8 +105,8 @@ app.MapDelete("/todoitems", async (TodoDb db) =>
         db.Todos.RemoveRange(db.Todos);
         await db.SaveChangesAsync();
 
-
-    return Results.Ok();
+    var todos = await db.Todos.ToListAsync();
+    return Results.Ok(todos);
 
   
 });
@@ -112,7 +117,8 @@ app.MapDelete("/todoitems/{id}", async (int id, TodoDb db) =>
     {
         db.Todos.Remove(todo);
         await db.SaveChangesAsync();
-        return Results.Ok();
+        var todos = await db.Todos.ToListAsync();
+        return Results.Ok(todos);
     }
 
     return Results.NotFound();
@@ -120,10 +126,13 @@ app.MapDelete("/todoitems/{id}", async (int id, TodoDb db) =>
 
 app.Run();
 
+[Index(nameof(Title), IsUnique = true)]
 class Todo
 {
     [Column("id")]
     public int Id { get; set; }
+    [Required]
+    [StringLength(100)]
     [Column("title")]
     public string Title { get; set; }
     [Column("completed")]
@@ -136,4 +145,11 @@ class TodoDb : DbContext
         : base(options) { }
 
     public DbSet<Todo> Todos => Set<Todo>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        builder.Entity<Todo>()
+            .HasIndex(u => u.Title)
+            .IsUnique();
+    }
 }

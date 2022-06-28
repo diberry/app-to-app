@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
+// set up web app
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<TodoDb>(opt => opt.UseInMemoryDatabase("TodoList"));
-
 
 builder.Services.AddCors(options =>
 {
@@ -21,6 +21,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 app.UseCors();
 
+// Set up routes
 // Root
 app.MapGet("/", () => "Hello World!");
 
@@ -42,19 +43,7 @@ app.MapGet("/todoitems/{id}", async (int id, TodoDb db) =>
     return Results.Ok(todo);
 
 });
-
-
-/*
-
-add 1 then return it
-
-headers: content-type: application/json
-
-{
-    "title": "Buy milk",
-    "completed": false
-}
- */
+// add 1
 app.MapPost("/todoitems", async (Todo todo, TodoDb db) =>
 {
 
@@ -100,7 +89,7 @@ app.MapDelete("/todoitems", async (TodoDb db) =>
 
   
 });
-
+// delete 1
 app.MapDelete("/todoitems/{id}", async (int id, TodoDb db) =>
 {
     if (await db.Todos.FindAsync(id) is Todo todo)
@@ -116,15 +105,18 @@ app.MapDelete("/todoitems/{id}", async (int id, TodoDb db) =>
 
 app.Run();
 
+// Title column is unique
 [Index(nameof(Title), IsUnique = true)]
 class Todo
 {
     [Column("id")]
     public int Id { get; set; }
+
     [Required]
     [StringLength(100)]
     [Column("title")]
     public string Title { get; set; }
+
     [Column("completed")]
     public bool Completed { get; set; }
 }

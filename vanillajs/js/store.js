@@ -3,17 +3,29 @@
     'use strict';
     const baseUrl = 'http://localhost:5065';
 
-    function Store(name) {
+    /**
+	 * Creates a new client side storage object and will create an empty
+	 * collection if no collection already exists.
+	 */
+    function Store() {
 
-        this._dbName = name;
         this._todoList = [];
-        this._todoListInitialized = false;
     }
 
+    /**
+     * Get client-side data list - doesn't refetch from server
+     * @returns {Array} Returns the todo list
+     */
     Store.prototype.getExistingData = function () {
         return Promise.resolve(this._todoList);
     }
 
+    /**
+     * 
+     * @param {object} query to match against (i.e. {id: 3})
+     * @param {*} callback 
+     * @returns {object} todo item wrapped in callback
+     */
     Store.prototype.find = async function (query, callback) {
 
 		if (!callback) {
@@ -30,6 +42,12 @@
 		}));
     };
 
+    /**
+     * Fetch data from server and update client-side data list
+     * 
+     * @param {function} callback 
+     * @returns data or callback(data) - depending on who called it
+     */
     Store.prototype.findAll = async function (callback) {
         try {
 
@@ -52,6 +70,13 @@
         };
     };
 
+    /**
+     * Insert or update item to server and update client-side data list
+     * 
+     * @param {*} updateData 
+     * @param {*} callback 
+     * @param {*} id - only for update, not for insert
+     */
     Store.prototype.save = async function (updateData, callback, id) {
 
         callback = callback || function () { };
@@ -82,6 +107,12 @@
         }
     };
 
+    /**
+     * Remote item from server and update client-side data list
+     * 
+     * @param {*} id 
+     * @param {*} callback 
+     */
     Store.prototype.remove = async function (id, callback) {
 
         try {
@@ -94,6 +125,11 @@
         }
     };
 
+    /**
+     * Delete all items from server and update client-side data list
+     * 
+     * @param {*} callback 
+     */
     Store.prototype.drop = async function (callback) {
 
         try {
@@ -107,7 +143,14 @@
         };
     };
 
-
+    /**
+     *  Fetch data from server
+     * 
+     * @param {*} url 
+     * @param {*} method 
+     * @param {*} body 
+     * @returns 
+     */
     Store.prototype.fetchFromApi = async function (url, method, body) {
 
         console.log(`${method} ${url} ${JSON.stringify(body)}`);

@@ -101,8 +101,8 @@
 			completed: 0,
 			total: 0
 		};
-
-		this.storage.findAll(function (data) {
+		console.log(`Model getCount`);
+		this.storage.getExistingData(function (data) {
 			data.forEach(function (todo) {
 				if (todo.completed) {
 					todos.completed++;

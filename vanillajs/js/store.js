@@ -1,7 +1,15 @@
 /*jshint eqeqeq:false */
 (function (window) {
     'use strict';
-    const baseUrl = 'http://localhost:5065';
+
+    let baseUrl;
+
+    if(process.env.NODE_ENV==='development'){
+        baseUrl = 'http://localhost:5065';
+    } else {
+        baseUrl = 'https://diberry-app-fe.azurewebsites.net';
+    }
+
 
     /**
 	 * Creates a new client side storage object and will create an empty
@@ -11,6 +19,27 @@
 
         this._todoList = [];
     }
+
+    /**
+     * Get the authentication token - make a request to the client's server
+     * to get a token.
+     * 
+     * @returns 
+     */
+    Store.prototype.getToken = function () {
+        const response = await fetch(`document.location`,
+            {
+                method: `HEAD`
+            });
+
+        response.headers.split("\n")
+            .map(x=>x.split(/: */,2))
+            .filter(x=>x[0])
+            .reduce((ac, x)=>{ac[x[0]] = x[1];return ac;}, {});
+
+        
+    }
+
 
     /**
      * Get client-side data list - doesn't refetch from server
@@ -160,7 +189,11 @@
                 method: `${method}`,
                 mode: 'cors',
                 headers: { 'Content-Type': 'application/json' },
-                body: body ? JSON.stringify(body) : undefined
+                body: body ? JSON.stringify(body) : undefined,
+                headers: new Headers({
+                    'Authorization': 'Bearer ' + localStorage.getItem('token'), 
+                    'Content-Type': 'application/json'
+                  }), 
             });
 
         return response;

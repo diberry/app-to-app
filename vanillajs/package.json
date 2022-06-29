@@ -5,10 +5,12 @@
     "todomvc-common": "^1.0.1"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "jasmine-core": "^2.0.0",
     "serve": "^13.0.2"
   },
   "scripts": {
-    "start": "serve"
+    "start": "serve",
+    "start:dev": "cross-env NODE_ENV=development serve"
   }
 }

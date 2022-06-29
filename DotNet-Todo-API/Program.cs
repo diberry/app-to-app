@@ -3,9 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Diagnostics;
+
+// https://docs.microsoft.com/en-us/azure/active-directory/develop/multi-service-web-app-access-microsoft-graph-as-user?tabs=azure-resource-explorer%2Cprogramming-language-csharp 
+
+
 
 // set up web app
-var builder = WebApplication.CreateBuilder(args);
+var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<TodoDb>(opt => opt.UseInMemoryDatabase("TodoList"));
 
 builder.Services.AddCors(options =>
@@ -20,11 +25,25 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 app.UseCors();
+
+/* 
+ * 
+ * 1) get user bearer token from client 
+ * or 2) get easy auth request injected header value
+
+*/
+builder.Services.AddHttpContextAccessor();
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.Add("x-my-custom-header", "middleware response");
+    
+    context.Request.Headers.TryGetValue("X-MS-TOKEN-AAD-ACCESS-TOKEN", out var traceValue);
+    Debug.Write(traceValue);
+
     await next();
 });
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Set up routes
 // Root
@@ -107,6 +126,16 @@ app.MapDelete("/todoitems/{id}", async (int id, TodoDb db) =>
 
     return Results.NotFound();
 });
+
+/*
+ * app.MapGet("/todoitems/user/", async (TodoDb db) =>
+{
+
+var user = await _graphServiceClient.Me.Request().GetAsync();
+            ViewData["Me"] = user;
+            ViewData["name"] = user.DisplayName;
+
+});*/
 
 app.Run();
 

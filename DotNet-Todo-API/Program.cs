@@ -20,6 +20,11 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 app.UseCors();
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Add("x-my-custom-header", "middleware response");
+    await next();
+});
 
 // Set up routes
 // Root

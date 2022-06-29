@@ -178,25 +178,42 @@
      * @param {*} url 
      * @param {*} method 
      * @param {*} body 
-     * @returns 
+     * @returns Promise
      */
     Store.prototype.fetchFromApi = async function (url, method, body) {
 
         console.log(`${method} ${url} ${JSON.stringify(body)}`);
 
+        const userAccessToken = await this.getToken();
+
         const response = await fetch(`${baseUrl}${url}`,
             {
                 method: `${method}`,
                 mode: 'cors',
-                headers: { 'Content-Type': 'application/json' },
                 body: body ? JSON.stringify(body) : undefined,
                 headers: new Headers({
-                    'Authorization': 'Bearer ' + localStorage.getItem('token'), 
+                    'Authorization': `Bearer ${userAccessToken}`, 
                     'Content-Type': 'application/json'
                   }), 
             });
 
         return response;
+    }
+    /**
+     *  Fetch `access_token` from this App Service
+     * 
+     * @returns accessToken
+     */
+    async function getToken(){
+    
+        const response = await fetch(`${baseUrl}/.auth/me`);
+        if (!response.ok) {
+            // do something for failure    
+        }
+    
+        const tokenArray = await response.json();
+        return tokenArray[0].access_token;
+    
     }
 
     // Export to window

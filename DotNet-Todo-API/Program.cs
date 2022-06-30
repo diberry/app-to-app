@@ -16,7 +16,11 @@ using System.Text.Json;
 // set up web app
 var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<TodoDb>(opt => opt.UseInMemoryDatabase("TodoList"));
+// Get incoming request headers
+builder.Services.AddHttpContextAccessor();
 
+// Make outgoing HTTP calls
+builder.Services.AddHttpClient();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(
@@ -37,14 +41,6 @@ app.UseCors();
 
 */
 
-// Get incoming request headers
-builder.Services.AddHttpContextAccessor();
-
-// Make outgoing HTTP calls
-builder.Services.AddHttpClient();
-
-app.UseAuthentication();
-app.UseAuthorization();
 
 // Set up routes
 // Root
@@ -60,6 +56,10 @@ app.MapGet("/graph/me", async (TodoDb db, HttpContext httpContext, IHttpClientFa
 {
     // Header is only injected and available in Azure Cloud App Service environment
     var bearerToken = httpContext.Request.Headers.FirstOrDefault(x => x.Key == "Authorization").Value.FirstOrDefault();
+
+    if (String.IsNullOrEmpty(bearerToken)) return Results.BadRequest("Didn't find bearer token in header");
+
+
     Debug.WriteLine("bearerToken: " + bearerToken);
 
     // https://developer.microsoft.com/en-us/graph/graph-explorer?request=me&method=GET&version=v1.0&GraphUrl=https://graph.microsoft.com
@@ -91,6 +91,10 @@ app.MapGet("/api/me", async (TodoDb db, HttpContext httpContext, IHttpClientFact
     // Header is only injected and available in Azure Cloud App Service environment
     //httpContext.Request.Headers.TryGetValue("X-MS-TOKEN-AAD-ACCESS-TOKEN", out var aadAccessTokenValues);
     var aadAccessToken = httpContext.Request.Headers.FirstOrDefault(x => x.Key == "X-MS-TOKEN-AAD-ACCESS-TOKEN").Value.FirstOrDefault();
+
+    if (String.IsNullOrEmpty(aadAccessToken)) return Results.BadRequest("Didn't find access token in header");
+
+
     Debug.WriteLine("X-MS-TOKEN-AAD-ACCESS-TOKEN: " + aadAccessToken);
 
     var httpClient = httpClientFactory.CreateClient("Downstream API server");

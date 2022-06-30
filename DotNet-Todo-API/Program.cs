@@ -1,9 +1,13 @@
 // .NET Core 6 API - For https://todobackend.com/
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Graph;
+using Microsoft.Net.Http.Headers;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
+using System.Net.Http.Headers;
+using System.Text.Json;
 
 // https://docs.microsoft.com/en-us/azure/active-directory/develop/multi-service-web-app-access-microsoft-graph-as-user?tabs=azure-resource-explorer%2Cprogramming-language-csharp 
 
@@ -32,15 +36,12 @@ app.UseCors();
  * or 2) get easy auth request injected header value
 
 */
-builder.Services.AddHttpContextAccessor();
-app.Use(async (context, next) =>
-{
-    
-    context.Request.Headers.TryGetValue("X-MS-TOKEN-AAD-ACCESS-TOKEN", out var traceValue);
-    Debug.Write(traceValue);
 
-    await next();
-});
+// Get incoming request headers
+builder.Services.AddHttpContextAccessor();
+
+// Make outgoing HTTP calls
+builder.Services.AddHttpClient();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -49,93 +50,78 @@ app.UseAuthorization();
 // Root
 app.MapGet("/", () => "Hello World!");
 
-// get all
-app.MapGet("/todoitems", async (TodoDb db) =>
+
+// This is the downstream API called from the upstream API
+// minimal api
+// https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-context?view=aspnetcore-6.0
+// https://docs.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis?view=aspnetcore-6.0
+// https://developer.microsoft.com/en-us/graph/graph-explorer
+app.MapGet("/graph/me", async (TodoDb db, HttpContext httpContext, IHttpClientFactory httpClientFactory) =>
 {
-    var todos = await db.Todos.ToListAsync();
-    return Results.Ok(todos);
+    // Header is only injected and available in Azure Cloud App Service environment
+    var bearerToken = httpContext.Request.Headers.FirstOrDefault(x => x.Key == "Authorization").Value.FirstOrDefault();
+    Debug.WriteLine("bearerToken: " + bearerToken);
+
+    // https://developer.microsoft.com/en-us/graph/graph-explorer?request=me&method=GET&version=v1.0&GraphUrl=https://graph.microsoft.com
+    // GET https://graph.microsoft.com/v1.0/me/messages?filter=emailAddress eq 'jon@contoso.com'
+
+    var graphServiceClient = new GraphServiceClient(
+        new DelegateAuthenticationProvider((requestMessage) =>
+        {
+            requestMessage
+            .Headers
+            .Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+            return Task.CompletedTask;
+        }));
+
+    var user = await graphServiceClient.Me
+    .Request()
+    .GetAsync();
+
+    Debug.Write("user: " + user.DisplayName);
+
+    return Results.Ok(user);
+
 });
 
-
-// get 1
-app.MapGet("/todoitems/{id}", async (int id, TodoDb db) =>
+// This is the upstream API, calls to the downstream API
+app.MapGet("/api/me", async (TodoDb db, HttpContext httpContext, IHttpClientFactory httpClientFactory) =>
 {
-    var todo = await db.Todos.FindAsync(id);
+    // Header is only injected and available in Azure Cloud App Service environment
+    //httpContext.Request.Headers.TryGetValue("X-MS-TOKEN-AAD-ACCESS-TOKEN", out var aadAccessTokenValues);
+    var aadAccessToken = httpContext.Request.Headers.FirstOrDefault(x => x.Key == "X-MS-TOKEN-AAD-ACCESS-TOKEN").Value.FirstOrDefault();
+    Debug.WriteLine("X-MS-TOKEN-AAD-ACCESS-TOKEN: " + aadAccessToken);
 
-    if (todo is null) return Results.NotFound();
+    var httpClient = httpClientFactory.CreateClient("Downstream API server");
 
-    return Results.Ok(todo);
-
-});
-// add 1
-app.MapPost("/todoitems", async (Todo todo, TodoDb db) =>
-{
-
-    if (String.IsNullOrEmpty(todo.Title))
-        return Results.BadRequest("Title is empty");
-
-    todo.Title = todo.Title.ToLower();
-
-    db.Todos.Add(todo);
-    await db.SaveChangesAsync();
-
-    var returnedTodo = await db.Todos.Where(t => t.Title == todo.Title).ToListAsync();
-
-    return Results.Ok(returnedTodo);
-
-});
-// update 1 by id
-app.MapPut("/todoitems/{id}", async (int id, [FromBody] Todo updateData, TodoDb db) =>
-{
-
-    var todo = await db.Todos.FindAsync(id);
-
-    if (todo is null) return Results.NotFound();
-
-    todo.Title = updateData.Title.ToLower();
-    todo.Completed = updateData.Completed;
-
-    await db.SaveChangesAsync();
-
-    var returnedTodo = await db.Todos.FindAsync(id);
-
-    return Results.Ok(returnedTodo);
-});
-
-// delete all
-app.MapDelete("/todoitems", async (TodoDb db) =>
-{
-        db.Todos.RemoveRange(db.Todos);
-        await db.SaveChangesAsync();
-
-    var todos = await db.Todos.ToListAsync();
-    return Results.Ok(todos);
-
-  
-});
-// delete 1
-app.MapDelete("/todoitems/{id}", async (int id, TodoDb db) =>
-{
-    if (await db.Todos.FindAsync(id) is Todo todo)
+    var httpRequestMessage = new HttpRequestMessage(
+            HttpMethod.Get,
+            "https://diberry-app-service-downstream/graph/me")
     {
-        db.Todos.Remove(todo);
-        await db.SaveChangesAsync();
-        var todos = await db.Todos.ToListAsync();
-        return Results.Ok(todos);
+        Headers =
+            {
+                { HeaderNames.Accept, "application/json" },
+                { HeaderNames.Authorization, "Bearer " + aadAccessToken }
+            }
+    };
+    var httpResponseMessage = await httpClient.SendAsync(httpRequestMessage);
+
+    if (httpResponseMessage.IsSuccessStatusCode)
+    {
+        using var contentStream =
+            await httpResponseMessage.Content.ReadAsStreamAsync();
+
+        var parsedObject = JsonSerializer.Deserialize<Dictionary<string, string>>(contentStream);
+        var displayName = parsedObject?["displayName"];
+        Debug.WriteLine("returned displayName: " + displayName);
+
+        return Results.Ok(displayName);
     }
 
-    return Results.NotFound();
+    return Results.Problem("Can't get user from Graph");
+
 });
-
-/*
- * app.MapGet("/todoitems/user/", async (TodoDb db) =>
-{
-
-var user = await _graphServiceClient.Me.Request().GetAsync();
-            ViewData["Me"] = user;
-            ViewData["name"] = user.DisplayName;
-
-});*/
 
 app.Run();
 
